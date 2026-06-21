@@ -8101,7 +8101,7 @@ library(gt)
 # 数据包含: SEQN, DR1TFIBE, RIDAGEYR, RIAGENDR, AR
 
 # 1. 膳食纤维分组
-nhanes <- nhanes_cleaned_data.csv %>%
+nhanes <- nhanes_cleaned_data %>%
   mutate(Fiber_group = case_when(
     DR1TFIBE < 15 ~ "Low Fiber",
     DR1TFIBE >= 15 & DR1TFIBE <= 25 ~ "Medium Fiber",
