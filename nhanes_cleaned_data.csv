@@ -8091,3 +8091,202 @@ SEQN,DR1TFIBE,MCQ010,RIDAGEYR,RIAGENDR,RIDRETH3,allergy_rhinitis,fiber_group
 124817,5.8,2,67,2,1,0,Low Fiber (<15g/day)
 124818,15,2,40,1,4,0,Medium Fiber (15-25g/day)
 124821,6.699999999999999,1,63,1,4,1,Low Fiber (<15g/day)
+# 加载必要的包
+library(dplyr)
+library(broom)
+library(tibble)
+library(gt)
+
+# 假设你的数据已经读入为 nhanes 数据框
+# 数据包含: SEQN, DR1TFIBE, RIDAGEYR, RIAGENDR, AR
+
+# 1. 膳食纤维分组
+nhanes <- nhanes_cleaned_data.csv %>%
+  mutate(Fiber_group = case_when(
+    DR1TFIBE < 15 ~ "Low Fiber",
+    DR1TFIBE >= 15 & DR1TFIBE <= 25 ~ "Medium Fiber",
+    DR1TFIBE > 25 ~ "High Fiber"
+  )) %>%
+  mutate(Fiber_group = factor(Fiber_group, levels = c("High Fiber", "Medium Fiber", "Low Fiber")))
+
+# 2. 单因素 Logistic 回归分析
+# AR 假设为二分类 0/1
+logit_model <- glm(AR ~ Fiber_group, data = nhanes, family = binomial)
+
+# 3. 提取回归结果
+results <- broom::tidy(logit_model) %>%
+  mutate(
+    OR = exp(estimate),
+    Lower95 = exp(estimate - 1.96 * std.error),
+    Upper95 = exp(estimate + 1.96 * std.error),
+    Z = estimate / std.error
+  ) %>%
+  rename(
+    Beta = estimate,
+    SE = std.error,
+    P = p.value
+  ) %>%
+  select(term, Beta, SE, Z, OR, Lower95, Upper95, P)
+
+# 4. 可发表的表格输出
+results_table <- results %>%
+  gt() %>%
+  tab_header(
+    title = "单因素 Logistic 回归分析：膳食纤维与过敏性鼻炎"
+  ) %>%
+  fmt_number(
+    columns = vars(Beta, SE, Z, OR, Lower95, Upper95, P),
+    decimals = 3
+  )
+
+# 打印表格
+print(results_table)
+# ===============================
+# 0. 加载包
+# ===============================
+library(dplyr)
+library(broom)
+library(openxlsx)
+
+# ===============================
+# 1. 数据准备
+# ===============================
+nhanes <- NHANES_2017_2023_merged %>%
+  select(SEQN, DR1TFIBE, RIDAGEYR, RIAGENDR, AR) %>%
+  na.omit()
+
+# ===============================
+# 2. AR 转换为 0/1
+# ===============================
+nhanes <- nhanes %>%
+  mutate(AR_binary = ifelse(AR == 1, 1,
+                     ifelse(AR == 2, 0, NA))) %>%
+  na.omit()
+
+# ===============================
+# 3. 膳食纤维分组（High 为 reference）
+# ===============================
+nhanes <- nhanes %>%
+  mutate(Fiber_group = case_when(
+    DR1TFIBE < 15 ~ "Low Fiber",
+    DR1TFIBE >= 15 & DR1TFIBE <= 25 ~ "Medium Fiber",
+    DR1TFIBE > 25 ~ "High Fiber"
+  )) %>%
+  mutate(Fiber_group = factor(Fiber_group,
+                              levels = c("High Fiber", "Medium Fiber", "Low Fiber")))
+
+# ===============================
+# 4. 性别处理（NHANES: 1=Male, 2=Female）
+# ===============================
+nhanes <- nhanes %>%
+  mutate(Gender = factor(RIAGENDR,
+                         levels = c(1, 2),
+                         labels = c("Male", "Female")))
+
+# ===============================
+# 5. 多因素 Logistic 回归
+# ===============================
+model <- glm(AR_binary ~ Fiber_group + RIDAGEYR + Gender,
+             data = nhanes,
+             family = binomial)
+
+# ===============================
+# 6. 提取结果（β, SE, Z, OR, CI, P）
+# ===============================
+res <- broom::tidy(model) %>%
+  mutate(
+    Z = estimate / std.error,
+    OR = exp(estimate),
+    Lower95 = exp(estimate - 1.96 * std.error),
+    Upper95 = exp(estimate + 1.96 * std.error)
+  )
+
+# ===============================
+# 7. 构建 SCI 三线表
+# ===============================
+table2 <- data.frame(
+  Variable = c(
+    "Dietary Fiber Intake",
+    "  High Fiber (>25 g/day)",
+    "  Medium Fiber (15–25 g/day)",
+    "  Low Fiber (<15 g/day)",
+    "Age (years)",
+    "Gender",
+    "  Male",
+    "  Female"
+  ),
+  
+  Beta = c(
+    "",
+    "Reference",
+    round(res$estimate[res$term == "Fiber_groupMedium Fiber"], 3),
+    round(res$estimate[res$term == "Fiber_groupLow Fiber"], 3),
+    round(res$estimate[res$term == "RIDAGEYR"], 3),
+    "",
+    "Reference",
+    round(res$estimate[res$term == "GenderFemale"], 3)
+  ),
+  
+  SE = c(
+    "",
+    "",
+    round(res$std.error[res$term == "Fiber_groupMedium Fiber"], 3),
+    round(res$std.error[res$term == "Fiber_groupLow Fiber"], 3),
+    round(res$std.error[res$term == "RIDAGEYR"], 3),
+    "",
+    "",
+    round(res$std.error[res$term == "GenderFemale"], 3)
+  ),
+  
+  Z = c(
+    "",
+    "",
+    round(res$Z[res$term == "Fiber_groupMedium Fiber"], 3),
+    round(res$Z[res$term == "Fiber_groupLow Fiber"], 3),
+    round(res$Z[res$term == "RIDAGEYR"], 3),
+    "",
+    "",
+    round(res$Z[res$term == "GenderFemale"], 3)
+  ),
+  
+  OR_95CI = c(
+    "",
+    "Reference",
+    paste0(round(res$OR[res$term == "Fiber_groupMedium Fiber"], 3), " (",
+           round(res$Lower95[res$term == "Fiber_groupMedium Fiber"], 3), "–",
+           round(res$Upper95[res$term == "Fiber_groupMedium Fiber"], 3), ")"),
+    paste0(round(res$OR[res$term == "Fiber_groupLow Fiber"], 3), " (",
+           round(res$Lower95[res$term == "Fiber_groupLow Fiber"], 3), "–",
+           round(res$Upper95[res$term == "Fiber_groupLow Fiber"], 3), ")"),
+    paste0(round(res$OR[res$term == "RIDAGEYR"], 3), " (",
+           round(res$Lower95[res$term == "RIDAGEYR"], 3), "–",
+           round(res$Upper95[res$term == "RIDAGEYR"], 3), ")"),
+    "",
+    "Reference",
+    paste0(round(res$OR[res$term == "GenderFemale"], 3), " (",
+           round(res$Lower95[res$term == "GenderFemale"], 3), "–",
+           round(res$Upper95[res$term == "GenderFemale"], 3), ")")
+  ),
+  
+  P_value = c(
+    "",
+    "",
+    ifelse(res$p.value[res$term == "Fiber_groupMedium Fiber"] < 0.001, "<0.001",
+           round(res$p.value[res$term == "Fiber_groupMedium Fiber"], 3)),
+    ifelse(res$p.value[res$term == "Fiber_groupLow Fiber"] < 0.001, "<0.001",
+           round(res$p.value[res$term == "Fiber_groupLow Fiber"], 3)),
+    ifelse(res$p.value[res$term == "RIDAGEYR"] < 0.001, "<0.001",
+           round(res$p.value[res$term == "RIDAGEYR"], 3)),
+    "",
+    "",
+    ifelse(res$p.value[res$term == "GenderFemale"] < 0.001, "<0.001",
+           round(res$p.value[res$term == "GenderFemale"], 3))
+  )
+)
+
+# ===============================
+# 8. 导出 Excel
+# ===============================
+write.xlsx(table2,
+           file = "Table2_Multivariable_Fiber_AR.xlsx",
+           rowNames = FALSE)
