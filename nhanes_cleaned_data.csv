@@ -8151,7 +8151,7 @@ library(openxlsx)
 # ===============================
 # 1. 数据准备
 # ===============================
-nhanes <- NHANES_2017_2023_merged %>%
+nhanes <- nhanes_cleaned_data %>%
   select(SEQN, DR1TFIBE, RIDAGEYR, RIAGENDR, AR) %>%
   na.omit()
 
