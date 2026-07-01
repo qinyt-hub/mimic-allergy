@@ -1,0 +1,69 @@
+title: "柱状图：Ctrl vs NDF 比较"
+
+library(tidyverse)
+library(ggplot2)
+
+data_raw <- data.frame(
+  Ctrl = c(0.135462824, 0.084962760, 0.096513297, 0.078246882, 0.063856478, 0.108740551),
+  NDF  = c(0.640761832, 0.542708964, 0.624760463, 0.235731148, 0.347903972, 0.562628763)
+)
+
+# 查看数据
+print(data_raw)
+
+data_long <- data_raw %>%
+  pivot_longer(cols = everything(), names_to = "Group", values_to = "Value")
+
+head(data_long)
+
+stats <- data_long %>%
+  group_by(Group) %>%
+  summarise(
+    N = n(),
+    Mean = mean(Value),
+    SD = sd(Value),
+    SE = SD / sqrt(N)
+  )
+
+print(stats)
+
+p <- ggplot(stats, aes(x = Group, y = Mean, fill = Group)) +
+  geom_col(width = 0.6, color = "black", size = 0.8) +
+  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), 
+                width = 0.2, size = 0.8) +
+  # 可选：在柱子上添加数值标签
+  geom_text(aes(label = round(Mean, 3)), vjust = -0.5, size = 5) +
+  labs(
+    title = "Comparison of Ctrl and NDF Groups",
+    x = "Group",
+    y = "Mean Value (± SE)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  ) +
+  scale_fill_manual(values = c("Ctrl" = "#3498db", "NDF" = "#e74c3c"))
+
+print(p)
+
+p2 <- ggplot(data_long, aes(x = Group, y = Value, fill = Group)) +
+  geom_col(data = stats, aes(y = Mean), width = 0.6, color = "black", size = 0.8, alpha = 0.4) +
+  geom_errorbar(data = stats, aes(y = Mean, ymin = Mean - SE, ymax = Mean + SE), 
+                width = 0.2, size = 0.8) +
+  geom_jitter(width = 0.15, size = 2, alpha = 0.7) +
+  labs(
+    title = "Raw Data with Mean ± SE",
+    x = "Group",
+    y = "Value"
+  ) +
+  theme_minimal(base_size = 14) +
+  scale_fill_manual(values = c("Ctrl" = "#3498db", "NDF" = "#e74c3c")) +
+  theme(legend.position = "none")
+
+print(p2)
+
+knitr::kable(stats, caption = "Descriptive Statistics by Group",
+             digits = 4, align = "c") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+
