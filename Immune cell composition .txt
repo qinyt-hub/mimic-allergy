@@ -1,0 +1,8 @@
+	          AR	            NDF
+B cell	0.0216	0.2795
+T cell	0.2103	0.0112
+Dendritic cell	0.0455	0.1175
+NK 	0.2866	0.2829
+Macrophage	0.1186	0.1974
+Monocytes	0.0378	0.0045
+Others	0.2796	0.107

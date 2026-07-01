@@ -1,0 +1,12 @@
+	                 AR	              NDF
+Basophil	        0.0898		0.0023	
+Eosinophil	0.0599		0.0189	
+mast_cell	0.1295		0.0522	
+M1_macrophage	0.007		0.0524	
+M2_macrophage	0.1116		0.145	
+DC.Immature	0.0001		0.0162	
+Th1.Cells	0.0659		0.2014	
+Th2.Cells	0.0105		0.0001	
+Treg	0.001		0.0197	
+B1_cell	0.0098		0.063	
+				
