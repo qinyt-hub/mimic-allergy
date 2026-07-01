@@ -1,0 +1,98 @@
+title: Heatmap
+
+library(tidyverse)
+library(pheatmap)
+library(RColorBrewer)
+
+raw_data <- read.table(text = "
+G0	G0	G0	G1	G1	G1	G2	G2	G2	G3	G3	G3	G4	G4	G4
+IL-3	1.24	1.62	1	2.59	2.02	2.16	1.49	1.49	1.75	1.24	2.02	1.75	1	1.36	1.62
+IL-1 beta	2.05	2.05	1.47	6.05	3.98	3.32	2.99	2.05	2.67	2.05	2.67	5.35	1.47	1.47	2.67
+TNF-alpha	18.97	21.08	14.97	47.55	30.07	21.08	27.74	14.97	27.74	23.24	37.33	23.24	18.97	23.24	21.08
+IL-9	8.8	9.98	8.8	28.09	17.2	17.8	12.96	10.57	20.84	12.36	15.98	17.2	8.8	8.8	14.77
+IFN-gamma	5.98	8.83	5.98	21.08	12.71	13.01	8.83	7.1	14.85	11.2	10.6	12.4	7.38	4.9	10.6
+IL-2	25.24	30.08	22.81	60.12	47.72	34.87	37.24	34.87	44.26	31.28	34.87	39.6	26.46	19.14	32.48
+IL-13	15.15	19.06	11.46	59.17	36.14	36.14	36.14	27.37	49.82	27.37	36.14	36.14	23.15	15.15	40.64
+IL-6	7.25	6.15	6.34	12.91	11.39	16.15	22.6	9.31	18.43	14.37	7.81	11.77	11.02	4.72	8
+IL-4	0.97	0.74	0.74	1.45	2.74	2.97	6.44	1.98	4.29	1.71	1.45	1.71	1.71	0.74	0.94
+MCP-1	68.43	82.69	68.43	150.47	96.72	110.52	124.07	96.72	96.72	96.72	96.72	124.07	39.42	68.43	110.52
+IL-5	2.05	2.59	1.55	3.15	3.15	2.59	4.32	2.86	3.73	2.59	3.43	2.59	1.55	1.55	2.59
+IL-1 alpha	13.58	13.16	17.32	25.29	18.75	16.08	14.84	15.46	19.76	17.94	18.14	18.96	12.94	12.31	11.03
+G-CSF	84.3	392.64	74.66	696.55	269.47	228.5	303.66	142.11	471.32	127.06	130.39	247.26	167.36	49.68	147.14
+RANTES	54.29	80.45	65.05	147.47	120.12	92.67	104.4	139.28	128.77	97.42	87.84	117.92	62.4	40.22	85.4
+IL-10	21	17.01	9.5	13.15	17.01	21	25.09	21	29.26	17.01	21	29.26	46.28	33.47	33.47
+KC	10.37	12.74	16.3	17.49	23.38	10.37	57.34	12.74	75.3	29.17	15.11	41.46	37.06	15.11	33.71
+IL-17A	1.15	1.38	0.93	2.12	1.38	1.99	1.62	0.93	1.62	1.15	1.38	1.62	0.73	1.15	1.38
+Eotaxin	16.71	12.86	24.52	111.24	121.1	92.77	126.21	43.03	147.25	41.23	61.44	51.95	42.42	57.13	83.67
+MIP-1 beta	29.11	39.13	23.29	59.81	54.4	46.15	54.4	37.71	62.48	43.36	48.92	54.4	33.43	29.11	46.15
+IL-12p40	8.79	13.76	9.74	20.18	15.86	14.8	15.33	12.73	16.92	15.86	13.25	13.76	7.85	8.79	9.74
+MIP-1 alpha	1.12	1.31	1.31	3.09	1.51	1.92	16.63	4.97	12.85	2.34	2.76	28.4	1.71	0.94	4.52
+IL-12p70	27.06	20.53	20.53	41.08	35.7	23.75	22.93	18.97	27.06	27.06	33.94	28.75	22.13	22.13	27.06
+", header = TRUE, check.names = FALSE)
+
+# 将第一列（细胞因子名称）设为行名
+rownames(raw_data) <- raw_data[,1]
+raw_data <- raw_data[,-1]
+
+# 查看数据维度
+dim(raw_data)
+head(raw_data[,1:6])
+
+# 定义分组索引
+groups <- rep(c("G0", "G1", "G2", "G3", "G4"), each = 3)
+
+# 计算每组均值，按行
+mean_matrix <- sapply(unique(groups), function(grp) {
+  cols <- which(groups == grp)
+  rowMeans(raw_data[, cols], na.rm = TRUE)
+})
+
+# 列名设置为 G0-G4
+colnames(mean_matrix) <- unique(groups)
+
+# 转换为数据框，便于查看
+mean_df <- as.data.frame(mean_matrix)
+print(mean_df)
+
+# 定义颜色板
+colors <- colorRampPalette(rev(brewer.pal(9, "RdBu")))(100)
+
+pheatmap(mean_matrix,
+         scale = "row",                # 按行标准化（Z-score）
+         cluster_rows = TRUE,          # 行聚类
+         cluster_cols = TRUE,          # 列聚类
+         clustering_distance_rows = "euclidean",
+         clustering_method = "complete",
+         color = colors,
+         main = "Expression Heatmap (G0-G4, row-scaled)",
+         fontsize_row = 10,
+         fontsize_col = 14,
+         display_numbers = FALSE,
+         number_format = "%.2f")
+
+pheatmap(mean_matrix,
+         scale = "none",
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,          # 列保持 G0-G4 顺序
+         color = colors,
+         main = "Mean Expression (raw values)",
+         fontsize_row = 10)
+
+# 创建列注释（仅示例）
+annotation_col <- data.frame(Time = c("G0","G1","G2","G3","G4"))
+rownames(annotation_col) <- colnames(mean_matrix)
+
+# 自定义颜色
+ann_colors <- list(Time = c(G0 = "#1b9e77", G1 = "#d95f02", 
+                            G2 = "#7570b3", G3 = "#e7298a", G4 = "#66a61e"))
+
+pheatmap(mean_matrix,
+         scale = "row",
+         cluster_rows = TRUE,
+         cluster_cols = FALSE,          # 保持时间顺序
+         color = colors,
+         annotation_col = annotation_col,
+         annotation_colors = ann_colors,
+         main = "Expression Heatmap with Time Annotation",
+         fontsize_row = 10,
+         fontsize_col = 14)
