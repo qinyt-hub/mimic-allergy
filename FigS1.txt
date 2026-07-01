@@ -1,0 +1,1223 @@
+title: "Univariable Logistic Regression for Dietary Fiber and Allergic Rhinitis"  
+
+# Packages
+
+```{r setup,message=FALSE,warning=FALSE}
+
+library(tidyverse)
+library(gtsummary)
+library(broom)
+library(gt)
+library(flextable)
+library(officer)
+library(finalfit)
+
+theme_set(theme_bw())
+
+```
+
+# Read data
+
+```{r}
+
+df <- read.csv("data/nhanes_cleaned_data.csv")
+
+dim(df)
+
+head(df)
+
+```
+
+# Data preprocessing
+
+```{r}
+
+df <- df %>%
+
+mutate(
+
+AR=factor(
+allergy_rhinitis,
+levels=c(0,1),
+labels=c("No","Yes")
+),
+
+fiber_group=factor(
+fiber_group,
+levels=c("High Fiber","Medium Fiber","Low Fiber")
+)
+
+)
+
+```
+
+# Check variables
+
+```{r}
+
+str(df)
+
+summary(df)
+
+```
+
+# Table 1
+
+```{r}
+
+table1 <-
+
+df %>%
+
+select(
+
+AR,
+
+fiber_group,
+
+RIDAGEYR,
+
+RIAGENDR,
+
+RIDRETH3,
+
+BMXBMI,
+
+DMDEDUC2,
+
+INDHHIN2,
+
+SMQ020,
+
+DR1TKCAL
+
+) %>%
+
+tbl_summary(
+
+by=AR,
+
+missing="no"
+
+) %>%
+
+add_p()
+
+table1
+
+```
+
+# Export Table 1
+
+```{r}
+
+table1 %>%
+
+as_flex_table() %>%
+
+save_as_docx(path="Results/Table1.docx")
+
+```
+
+# Univariable Logistic Regression
+
+Outcome
+
+```{r}
+
+dependent="AR"
+
+```
+
+Predictors
+
+```{r}
+
+independent <- c(
+
+"fiber_group",
+
+"RIDAGEYR",
+
+"RIAGENDR",
+
+"RIDRETH3",
+
+"BMXBMI",
+
+"DMDEDUC2",
+
+"INDHHIN2",
+
+"SMQ020",
+
+"DR1TKCAL"
+
+)
+
+```
+
+Run models
+
+```{r}
+
+uni_result <-
+
+lapply(
+
+independent,
+
+function(x){
+
+formula <- as.formula(
+
+paste(
+
+"AR~",
+
+x
+
+)
+
+)
+
+glm(
+
+formula,
+
+data=df,
+
+family=binomial
+
+)
+
+}
+
+)
+
+```
+
+# Extract OR
+
+```{r}
+
+uni_table <-
+
+map2_df(
+
+uni_result,
+
+independent,
+
+function(model,var){
+
+tidy(
+
+model,
+
+conf.int=TRUE,
+
+exponentiate=TRUE
+
+) %>%
+
+mutate(
+
+Variable=var
+
+)
+
+}
+
+)
+
+```
+
+# Rearrange
+
+```{r}
+
+uni_table <-
+
+uni_table %>%
+
+select(
+
+Variable,
+
+term,
+
+estimate,
+
+conf.low,
+
+conf.high,
+
+p.value
+
+)
+
+colnames(uni_table) <- c(
+
+"Variable",
+
+"Level",
+
+"OR",
+
+"Lower95CI",
+
+"Upper95CI",
+
+"P"
+
+)
+
+uni_table
+
+```
+
+# Round
+
+```{r}
+
+uni_table <-
+
+uni_table %>%
+
+mutate(
+
+OR=round(OR,3),
+
+Lower95CI=round(Lower95CI,3),
+
+Upper95CI=round(Upper95CI,3),
+
+P=round(P,4)
+
+)
+
+```
+
+# Export csv
+
+```{r}
+
+write.csv(
+
+uni_table,
+
+"Results/Univariable_Logistic.csv",
+
+row.names=FALSE
+
+)
+
+```
+
+# Pretty Table
+
+```{r}
+
+gt(uni_table)
+
+```
+
+# Forest Plot
+
+```{r}
+
+forest <-
+
+uni_table %>%
+
+filter(
+
+Level!="(Intercept)"
+
+)
+
+ggplot(
+
+forest,
+
+aes(
+
+y=reorder(Level,OR),
+
+x=OR
+
+)
+
+)+
+
+geom_point(
+
+size=3,
+
+colour="#E64B35"
+
+)+
+
+geom_errorbarh(
+
+aes(
+
+xmin=Lower95CI,
+
+xmax=Upper95CI
+
+),
+
+height=.25
+
+)+
+
+geom_vline(
+
+xintercept=1,
+
+linetype=2
+
+)+
+
+labs(
+
+x="Odds Ratio",
+
+y=""
+
+)+
+
+theme_classic()
+
+forest
+
+```
+
+# Save Figure
+
+```{r}
+
+ggsave(
+
+"Results/Forest_Univariable.pdf",
+
+forest,
+
+width=7,
+
+height=6
+
+)
+
+ggsave(
+
+"Results/Forest_Univariable.tiff",
+
+forest,
+
+dpi=600,
+
+compression="lzw",
+
+width=7,
+
+height=6
+
+)
+
+```
+
+# Session information
+
+```{r}
+
+sessionInfo()
+
+```
+
+title: "Multivariable Logistic Regression"
+
+```{r setup,message=FALSE,warning=FALSE}
+
+library(tidyverse)
+library(broom)
+library(gtsummary)
+library(gt)
+library(finalfit)
+library(flextable)
+library(officer)
+library(ggplot2)
+
+theme_set(theme_bw())
+
+```
+
+```{r}
+
+df <- read.csv("data/nhanes_cleaned_data.csv")
+
+dim(df)
+
+head(df)
+
+summary(df)
+
+```{r}
+
+df <- df %>%
+
+mutate(
+
+AR = factor(
+allergy_rhinitis,
+levels=c(0,1),
+labels=c("No","Yes")
+),
+
+fiber_group=factor(
+fiber_group,
+levels=c(
+"High Fiber",
+"Medium Fiber",
+"Low Fiber"
+)
+),
+
+RIAGENDR=factor(RIAGENDR),
+
+RIDRETH3=factor(RIDRETH3),
+
+DMDEDUC2=factor(DMDEDUC2),
+
+SMQ020=factor(SMQ020)
+
+)
+
+```
+
+levels(df$fiber_group)
+
+table(df$fiber_group)
+
+```{r}
+
+analysis_df <-
+
+df %>%
+
+select(
+
+AR,
+
+fiber_group,
+
+RIDAGEYR,
+
+RIAGENDR,
+
+RIDRETH3,
+
+BMXBMI,
+
+DMDEDUC2,
+
+INDHHIN2,
+
+SMQ020,
+
+DR1TKCAL
+
+) %>%
+
+drop_na()
+
+dim(analysis_df)
+
+```
+
+```{r}
+
+model1 <-
+
+glm(
+
+AR~
+
+fiber_group,
+
+family=binomial,
+
+data=analysis_df
+
+)
+
+summary(model1)
+
+```
+
+```{r}
+
+model2 <-
+
+glm(
+
+AR~
+
+fiber_group+
+
+RIDAGEYR+
+
+RIAGENDR,
+
+family=binomial,
+
+data=analysis_df
+
+)
+
+summary(model2)
+
+```
+
+```{r}
+
+model3 <-
+
+glm(
+
+AR~
+
+fiber_group+
+
+RIDAGEYR+
+
+RIAGENDR+
+
+RIDRETH3+
+
+BMXBMI+
+
+DMDEDUC2+
+
+INDHHIN2+
+
+SMQ020+
+
+DR1TKCAL,
+
+family=binomial,
+
+data=analysis_df
+
+)
+
+summary(model3)
+
+
+title: "Continuous Exposure Modeling"
+
+```{r setup,message=FALSE,warning=FALSE}
+
+library(tidyverse)
+library(broom)
+library(gtsummary)
+library(gt)
+library(finalfit)
+library(flextable)
+library(officer)
+library(ggplot2)
+
+theme_set(theme_bw())
+
+
+df <- read.csv("data/nhanes_cleaned_data.csv")
+
+head(df)
+
+```{r}
+
+analysis_df <-
+
+df %>%
+
+mutate(
+
+AR=factor(
+allergy_rhinitis,
+levels=c(0,1),
+labels=c("No","Yes")
+),
+
+Sex=factor(RIAGENDR),
+
+Race=factor(RIDRETH3),
+
+Education=factor(DMDEDUC2),
+
+Smoking=factor(SMQ020)
+
+) %>%
+
+select(
+
+AR,
+
+DR1TFIBE,
+
+RIDAGEYR,
+
+Sex,
+
+Race,
+
+BMXBMI,
+
+Education,
+
+INDHHIN2,
+
+Smoking,
+
+DR1TKCAL
+
+) %>%
+
+drop_na()
+
+dim(analysis_df)
+
+```{r}
+
+summary(analysis_df$DR1TFIBE)
+
+hist(
+
+analysis_df$DR1TFIBE,
+
+breaks=30,
+
+col="#4DBBD5",
+
+main="Dietary Fiber Intake",
+
+xlab="Fiber (g/day)"
+
+)
+
+```{r}
+
+model1 <- glm(
+
+AR~
+
+DR1TFIBE,
+
+family=binomial,
+
+data=analysis_df
+
+)
+
+summary(model1)
+
+```{r}
+
+model2 <- glm(
+
+AR~
+
+DR1TFIBE+
+
+RIDAGEYR+
+
+Sex,
+
+family=binomial,
+
+data=analysis_df
+
+)
+
+summary(model2)
+
+```{r}
+
+model3 <- glm(
+
+AR~
+
+DR1TFIBE+
+
+RIDAGEYR+
+
+Sex+
+
+Race+
+
+BMXBMI+
+
+Education+
+
+INDHHIN2+
+
+Smoking+
+
+DR1TKCAL,
+
+family=binomial,
+
+data=analysis_df
+
+)
+
+summary(model3)
+
+result1 <- tidy(
+
+model1,
+
+conf.int=TRUE,
+
+exponentiate=TRUE
+
+)
+
+result2 <- tidy(
+
+model2,
+
+conf.int=TRUE,
+
+exponentiate=TRUE
+
+)
+
+result3 <- tidy(
+
+model3,
+
+conf.int=TRUE,
+
+exponentiate=TRUE
+
+)
+
+fiber1 <-
+
+result1 %>%
+
+filter(term=="DR1TFIBE") %>%
+
+mutate(Model="Model1")
+
+fiber2 <-
+
+result2 %>%
+
+filter(term=="DR1TFIBE") %>%
+
+mutate(Model="Model2")
+
+fiber3 <-
+
+result3 %>%
+
+filter(term=="DR1TFIBE") %>%
+
+mutate(Model="Model3")
+
+continuous_result <-
+
+bind_rows(
+
+fiber1,
+
+fiber2,
+
+fiber3
+
+)
+
+continuous_result
+
+continuous_result <-
+
+continuous_result %>%
+
+transmute(
+
+Model,
+
+OR=round(estimate,3),
+
+Lower95CI=round(conf.low,3),
+
+Upper95CI=round(conf.high,3),
+
+P=round(p.value,4)
+
+)
+
+continuous_result
+
+write.csv(
+
+continuous_result,
+
+"Results/Continuous_Logistic.csv",
+
+row.names=FALSE
+
+)
+
+```
+```{r fig.width=6,fig.height=4}
+
+ggplot(
+
+continuous_result,
+
+aes(
+
+x=Model,
+
+y=OR
+
+)
+
+)+
+
+geom_point(
+
+size=4,
+
+colour="#E64B35"
+
+)+
+
+geom_errorbar(
+
+aes(
+
+ymin=Lower95CI,
+
+ymax=Upper95CI
+
+),
+
+width=.15,
+
+linewidth=.8
+
+)+
+
+geom_hline(
+
+yintercept=1,
+
+linetype=2
+
+)+
+
+theme_classic(base_size=15)+
+
+ylab("Odds Ratio per 1 g/day Fiber")
+
+```
+```{r}
+
+p <- last_plot()
+
+ggsave(
+
+"Results/Continuous_Logistic.pdf",
+
+p,
+
+width=6,
+
+height=4
+
+)
+
+ggsave(
+
+"Results/Continuous_Logistic.tiff",
+
+p,
+
+dpi=600,
+
+compression="lzw",
+
+width=6,
+
+height=4
+
+)
+
+sessionInfo()
+
+title: "Fiber Intake and AR Prevalence - Trend Testing"
+
+# 加载所需包
+library(tidyverse)
+library(broom)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+
+# 假设纤维变量名为 fiber_g，AR变量名为 AR（0/1或因子）
+# 请根据实际变量名修改
+df <- nhanes_cleaned_data %>%
+  mutate(
+    fiber_group = case_when(
+      fiber_g > 25 ~ "High",
+      fiber_g >= 15 & fiber_g <= 25 ~ "Medium",
+      fiber_g < 15 ~ "Low"
+    ),
+    # 将分组转换为有序因子，顺序为 Low < Medium < High
+    fiber_group = factor(fiber_group, levels = c("Low", "Medium", "High")),
+    # 确保 AR 为因子（如果尚未）
+    AR = factor(AR, levels = c(0, 1), labels = c("No", "Yes"))
+  ) %>%
+  # 删除缺失值
+  filter(!is.na(fiber_group) & !is.na(AR))
+
+# 查看各组合计数
+table(df$fiber_group)
+
+prev_table <- df %>%
+  group_by(fiber_group) %>%
+  summarise(
+    N = n(),
+    AR_Yes = sum(AR == "Yes"),
+    Prevalence = round(AR_Yes / N * 100, 2)
+  ) %>%
+  mutate(Prevalence_CI = NA)  # 可自行添加置信区间
+
+kable(prev_table, caption = "AR Prevalence by Fiber Group",
+      col.names = c("Fiber Group", "N", "AR Cases", "Prevalence (%)")) %>%
+  kable_styling(full_width = FALSE)
+
+chisq_test <- chisq.test(table(df$fiber_group, df$AR))
+cat("Chi-square test for association:\n")
+print(chisq_test)
+
+# 将 High 设为参考水平
+df$fiber_group_ref <- relevel(df$fiber_group, ref = "High")
+
+# 单变量逻辑回归
+model_unadj <- glm(AR ~ fiber_group_ref, data = df, family = binomial())
+summary(model_unadj)
+
+# 提取 OR 和 95% CI
+or_table <- tidy(model_unadj, conf.int = TRUE, exponentiate = TRUE) %>%
+  filter(term != "(Intercept)") %>%
+  mutate(
+    term = gsub("fiber_group_ref", "", term),
+    OR = round(estimate, 2),
+    CI = paste0(round(conf.low, 2), "–", round(conf.high, 2)),
+    P = round(p.value, 4)
+  ) %>%
+  select(Term = term, OR, CI, P)
+
+kable(or_table, caption = "Odds Ratios for AR (vs. High Fiber)") %>%
+  kable_styling(full_width = FALSE)
+
+# 为分组赋值：Low=1, Medium=2, High=3
+df <- df %>%
+  mutate(
+    fiber_score = case_when(
+      fiber_group == "Low" ~ 1,
+      fiber_group == "Medium" ~ 2,
+      fiber_group == "High" ~ 3
+    )
+  )
+
+# 将 fiber_score 作为连续变量纳入逻辑回归
+model_trend <- glm(AR ~ fiber_score, data = df, family = binomial())
+summary(model_trend)
+
+# 提取趋势检验的 p 值
+trend_p <- coef(summary(model_trend))["fiber_score", "Pr(>|z|)"]
+cat("Linear trend p-value (from logistic regression):", trend_p, "\n")
+
+cat("=== Summary of Results ===\n")
+cat("Prevalence:\n")
+print(prev_table)
+cat("\nChi-square p-value:", round(chisq_test$p.value, 4))
+cat("\nCochran-Armitage trend p-value:", round(prop_trend$p.value, 4))
+cat("\nLogistic linear trend p-value:", round(trend_p, 4))
+
+title: "Restricted Cubic Spline (RCS) Analysis: Fiber Intake and AR"
+
+# 加载核心包
+library(tidyverse)
+library(rms)          # 用于 RCS 回归（lrm, datadist, Predict）
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+
+# 筛选所需变量，删除缺失值
+df <- df_raw %>%
+  dplyr::select(AR, fiber_g, age, gender) %>%   # 若有其他协变量可添加
+  filter(!is.na(AR) & !is.na(fiber_g)) %>%
+  # 确保 AR 为数值型 0/1（rms 要求）
+  mutate(
+    AR = as.numeric(AR) - 1,          # 若原为 1/2 或因子，请调整此处
+    gender = as.factor(gender)        # 若有性别变量，转为因子
+  )
+
+# 剔除纤维摄入极端异常值（可选，建议保留 1%-99% 百分位数）
+# df <- df %>% filter(fiber_g > quantile(fiber_g, 0.01) & fiber_g < quantile(fiber_g, 0.99))
+
+# 查看数据结构
+str(df)
+summary(df$fiber_g)
+table(df$AR)
+
+# 定义数据分布环境，rms 包依赖于 datadist
+dd <- datadist(df)
+options(datadist = "dd")
+
+# lrm() 用于拟合逻辑回归，rcs() 定义限制性立方样条
+model_crude <- lrm(AR ~ rcs(fiber_g, knots), data = df, x = TRUE, y = TRUE)
+
+# 查看模型概要
+print(model_crude)
+
+# 输出方差分析（检验线性趋势与非线性趋势）
+anova_crude <- anova(model_crude)
+print(anova_crude)
+
+# 若有协变量，例如年龄（连续）和性别（分类）
+# 若没有相关变量，可跳过此步
+if ("age" %in% colnames(df) & "gender" %in% colnames(df)) {
+  model_adj <- lrm(AR ~ rcs(fiber_g, knots) + age + gender, 
+                   data = df, x = TRUE, y = TRUE)
+  print(model_adj)
+  anova_adj <- anova(model_adj)
+  print(anova_adj)
+} else {
+  cat("未检测到 age 或 gender 变量，跳过调整模型。\n")
+  model_adj <- NULL
+}
+
+# 设定参照值：根据研究设计，以 High Fiber 切点 25 g/day 为参照 (OR=1)
+ref_value <- 25
+
+# 生成预测数据范围（从第 5 百分位数到第 95 百分位数，避免尾部噪声）
+fiber_range <- seq(quantile(df$fiber_g, 0.05, na.rm = TRUE), 
+                   quantile(df$fiber_g, 0.95, na.rm = TRUE), 
+                   length.out = 100)
+
+# 使用 Predict 函数进行预测（未调整模型）
+p_crude <- Predict(model_crude, fiber_g = fiber_range, ref.zero = TRUE, fun = exp)
+
+# 将预测结果转为 data.frame 方便绘图
+pred_df_crude <- as.data.frame(p_crude)
+colnames(pred_df_crude) <- c("fiber_g", "OR", "lower", "upper")
+
+# 如果有调整模型，同样预测
+if (!is.null(model_adj)) {
+  p_adj <- Predict(model_adj, fiber_g = fiber_range, ref.zero = TRUE, fun = exp)
+  pred_df_adj <- as.data.frame(p_adj)
+  colnames(pred_df_adj) <- c("fiber_g", "OR", "lower", "upper")
+} else {
+  pred_df_adj <- NULL
+}
+
+# 查看预测数据前几行
+head(pred_df_crude)
+
+# 基础绘图（未调整模型）
+p_plot <- ggplot(pred_df_crude, aes(x = fiber_g, y = OR)) +
+  geom_line(size = 1.2, color = "#2c3e50") +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, fill = "#3498db") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "red", size = 0.8) +
+  # 在参照值 25 g/day 处添加竖线标记
+  geom_vline(xintercept = ref_value, linetype = "dotted", color = "grey40", size = 0.8) +
+  annotate("text", x = ref_value + 1, y = max(pred_df_crude$upper) * 0.9, 
+           label = paste0("Ref: ", ref_value, " g/day"), hjust = 0, size = 4) +
+  # 添加直方图或地毯图以显示数据分布（可选）
+  geom_rug(data = df, aes(x = fiber_g), sides = "b", alpha = 0.1) +
+  labs(
+    title = "Restricted Cubic Spline: Fiber Intake and AR Odds Ratio",
+    subtitle = "Adjusted for covariates (if applicable) | 4 knots",
+    x = "Dietary Fiber Intake (g/day)",
+    y = "Odds Ratio for AR (95% CI)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    panel.grid.minor = element_blank()
+  )
+
+print(p_plot)
+
+# 如果有调整模型，可以将两条曲线叠加比较（可选）
+if (!is.null(pred_df_adj)) {
+  pred_df_crude$Model <- "Crude"
+  pred_df_adj$Model <- "Adjusted"
+  combined <- rbind(pred_df_crude, pred_df_adj)
+  
+  p_combined <- ggplot(combined, aes(x = fiber_g, y = OR, color = Model, fill = Model)) +
+    geom_line(size = 1) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, linetype = 0) +
+    geom_hline(yintercept = 1, linetype = "dashed", color = "black", size = 0.5) +
+    geom_vline(xintercept = ref_value, linetype = "dotted", color = "grey50") +
+    scale_color_manual(values = c("Crude" = "#e74c3c", "Adjusted" = "#2980b9")) +
+    scale_fill_manual(values = c("Crude" = "#e74c3c", "Adjusted" = "#2980b9")) +
+    labs(
+      title = "RCS Comparison: Crude vs Adjusted",
+      x = "Fiber Intake (g/day)", y = "Odds Ratio for AR (95% CI)"
+    ) +
+    theme_minimal(base_size = 14)
+  
+  print(p_combined)
+}
+
+# 未调整模型非线性检验 P 值
+p_nonlinear_crude <- anova_crude["fiber_g", "Nonlinear"]  # 注意行名可能略有不同，请查看 anova_crude 实际输出
+
+# 若存在调整模型
+if (!is.null(model_adj)) {
+  p_nonlinear_adj <- anova_adj["fiber_g", "Nonlinear"]
+} else {
+  p_nonlinear_adj <- NA
+}
+
+# 构建结果汇总表
+result_table <- data.frame(
+  Model = c("Crude", "Adjusted"),
+  `Nonlinearity P-value` = c(round(p_nonlinear_crude, 4), round(p_nonlinear_adj, 4))
+)
+
+kable(result_table, caption = "Tests for Non-linearity in RCS Models") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# 为了呼应前文的分类分析，在图中添加低、中、高纤维的分界线
+# Low < 15, Medium 15-25, High > 25
+group_breaks <- c(0, 15, 25, max(df$fiber_g, na.rm = TRUE))
+group_labels <- c("Low Fiber", "Medium Fiber", "High Fiber")
+
+p_plot +
+  # 添加分组背景色块
+  annotate("rect", xmin = 0, xmax = 15, ymin = -Inf, ymax = Inf, 
+           alpha = 0.1, fill = "#f1c40f") +
+  annotate("rect", xmin = 15, xmax = 25, ymin = -Inf, ymax = Inf, 
+           alpha = 0.1, fill = "#2ecc71") +
+  annotate("rect", xmin = 25, xmax = max(pred_df_crude$fiber_g), 
+           ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "#3498db") +
+  annotate("text", x = 7.5, y = 0.2, label = "Low", size = 3, color = "grey30") +
+  annotate("text", x = 20, y = 0.2, label = "Medium", size = 3, color = "grey30") +
+  annotate("text", x = 35, y = 0.2, label = "High", size = 3, color = "grey30") +
+  labs(subtitle = "Overlay with traditional fiber intake categories")
+
+
+
+
