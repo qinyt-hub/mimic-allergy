@@ -1,0 +1,10 @@
+Table S2 Multivariable logistic regression analysis results.						
+Variables	β	S.E.	Z	P	OR (95% CI)	
+Fiber Group						
+High Fiber (>25 g/day)					1.00 (Reference)	
+Low Fiber (<15 g/day)	0.327	0.092	3.56	＜0.001	1.39 (1.16–1.66)	
+Medium Fiber (15–25 g/day)	0.21	0.1	2.1	0.036	1.23 (1.02–1.50)	
+						
+Age (per 1-year increase)	-0.009	0.002	-5.56	＜0.001	0.99 (0.99–0.99)	
+Gender (Female vs Male)	0.292	0.061	4.75	＜0.001	1.34 (1.19–1.51)	
+OR: Odds Ratio, CI: Confidence Interval						

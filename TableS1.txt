@@ -1,0 +1,7 @@
+Table S1 Univariable logistic regression analysis results.						
+Variables	β	S.E.	Z	P	OR (95% CI)	
+Fiber Group						
+High Fiber (>25 g/day)					1.00 (Reference)	
+Low Fiber (<15 g/day)	0.38	0.09	4.22	＜0.001	1.47 (1.23–1.75)	
+Medium Fiber (15–25 g/day)	0.23	0.1	2.32	0.02	1.26 (1.04–1.53)	
+OR: Odds Ratio, CI: Confidence Interval						

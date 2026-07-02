@@ -1,0 +1,7 @@
+Table S3  Association between dietary fiber intake and AR using two modeling approaches (adjusted for age and gender).						
+Model	OR	(95% CI)	P			
+Continuous (per 10 g/day)	0.87	0.81-0.92	＜0.001			
+Trend per category (Low-Medium-High)	0.86	0.78-0.95	0.002			
+						
+						
+						
